@@ -1,0 +1,51 @@
+name: WPS AI 社区日报
+
+on:
+  schedule:
+    # UTC 00:00 = 北京时间 08:00，每天执行
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+    # 支持手动触发（方便调试）
+    inputs:
+      enrich:
+        description: '是否抓取详情（更精准但更慢）'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+
+jobs:
+  daily-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Run daily report
+        env:
+          PUSHPLUS_TOKEN: ${{ secrets.PUSHPLUS_TOKEN }}
+          ENRICH_DETAIL: ${{ github.event.inputs.enrich || 'false' }}
+        run: |
+          cd ${{ github.workspace }}
+          python main.py
+
+      - name: Upload log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-log
+          path: '*.log'
